@@ -430,16 +430,13 @@ elif st.session_state.step == 2:
             st.session_state.data_source = data_source
             
             if data_source == "Database":
-                st.session_state.claims_db = claims_db
-                st.session_state.claims_table = claims_table
-                st.session_state.bdx_month = bdx_month
                 st.session_state.prev_bdx_month = prev_bdx
             
             st.session_state.use_risk_db = use_risk_db
             if use_risk_db:
-                st.session_state.risk_db = risk_db
-                st.session_state.risk_table = risk_table
-            
+                # `risk_db` and `risk_table` are widget keys; do not overwrite them here.
+                pass
+
             st.session_state.step = 3
             st.rerun()
 
@@ -671,7 +668,7 @@ elif st.session_state.step == 5:
             ])
             st.dataframe(mapping_df, use_container_width=True)
     else:
-        st.warning("⚠️ Please map all required columns to proceed")
+        st.warning("⚠️ Some logical fields are not mapped. In Step 6, checks that need them will be auto-disabled.")
     
     st.markdown("---")
     
@@ -684,7 +681,7 @@ elif st.session_state.step == 5:
             st.rerun()
     
     with col2:
-        if st.button("Next →", type="primary", disabled=not mappings_complete):
+        if st.button("Next →", type="primary"):
             st.session_state.step = 6
             st.rerun()
 
@@ -708,17 +705,109 @@ elif st.session_state.step == 6:
     st.markdown("---")
     st.subheader("Checks & Points (must total 100)")
 
+    # Auto-disable checks if required logical columns were not mapped in Step 5
+    mapped_logicals = set(k for k, v in st.session_state.column_mappings.items() if v)
+    prev_available = False
+    if st.session_state.data_source == "Database":
+        prev_val = getattr(st.session_state, "prev_bdx_month", None)
+        prev_available = prev_val is not None and str(prev_val) != "NaT"
+    else:
+        prev_available = getattr(st.session_state, "excel_prev_data", None) is not None
+
+    auto_disabled_reasons = {}
+
+    for c in checks:
+        c_type = c.get("type")
+        cid = c.get("id")
+        missing = []
+        reason = None
+
+        if c_type in ("not_null", "not_null_not_year_1900", "non_negative", "unique", "valid_date"):
+            f = c.get("field")
+            if f and f not in mapped_logicals:
+                missing.append(f)
+
+        elif c_type == "closed_os_zero":
+            for f in ["claim_status", "total_os"]:
+                if f not in mapped_logicals:
+                    missing.append(f)
+
+        elif c_type == "loss_within_policy":
+            # policy_end_date is optional; if missing we assume start + 1 year in backend
+            for f in ["accident_date", "policy_start_date"]:
+                if f not in mapped_logicals:
+                    missing.append(f)
+
+        elif c_type == "incurred_equals_paid_plus_os":
+            for f in ["total_incurred", "total_paid", "total_os"]:
+                if f not in mapped_logicals:
+                    missing.append(f)
+
+        elif c_type == "missing_claims_from_prev_month":
+            if not prev_available:
+                reason = "Previous bdx month not available (MoM comparisons skipped)"
+            else:
+                for f in ["claim_number"]:
+                    if f not in mapped_logicals:
+                        missing.append(f)
+
+        elif c_type == "total_paid_non_decreasing_vs_prev":
+            if not prev_available:
+                reason = "Previous bdx month not available (MoM comparisons skipped)"
+            else:
+                for f in ["claim_number", "total_paid"]:
+                    if f not in mapped_logicals:
+                        missing.append(f)
+
+        elif c_type == "risk_policy_match":
+            if not st.session_state.use_risk_db:
+                reason = "Risk database not selected"
+            else:
+                # need mapped columns for join
+                for f in ["policy_number", "risk_policy_number"]:
+                    if f not in mapped_logicals:
+                        missing.append(f)
+
+        if missing and reason is None:
+            reason = f"Missing/unmapped columns: {', '.join(missing)}"
+
+        if reason:
+            c["enabled"] = False
+            auto_disabled_reasons[cid] = reason
+
+    if auto_disabled_reasons:
+        st.warning("Some checks were auto-disabled because required columns are not mapped:")
+        for cid, reason in auto_disabled_reasons.items():
+            st.caption(f"- {cid}: {reason}")
+
     total_enabled_points = 0
     enabled_count = 0
 
     for c in checks:
         cid = c.get("id")
+        reason = auto_disabled_reasons.get(cid)
         with st.expander(f"{'✅' if c.get('enabled', True) else '❌'} {cid}: {c.get('name')}"):
             col_a, col_b = st.columns([1, 1])
             with col_a:
-                c["enabled"] = st.checkbox("Enabled", value=bool(c.get("enabled", True)), key=f"en_{cid}")
+                c["enabled"] = st.checkbox(
+                    "Enabled",
+                    value=bool(c.get("enabled", True)),
+                    disabled=bool(reason),
+                    key=f"en_{cid}",
+                )
             with col_b:
-                c["points"] = st.number_input("Points", value=int(c.get("points", 0)), min_value=0, max_value=100, step=1, key=f"pt_{cid}")
+                c["points"] = st.number_input(
+                    "Points @ >=95% pass rate",
+                    value=int(c.get("points", 0)),
+                    min_value=0,
+                    max_value=100,
+                    step=1,
+                    disabled=bool(reason),
+                    key=f"pt_{cid}",
+                )
+
+                if reason:
+                    st.caption(f"Auto-disabled: {reason}")
 
         if c.get("enabled", True):
             enabled_count += 1

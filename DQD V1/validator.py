@@ -31,12 +31,30 @@ def _safe_str_series(s: pd.Series) -> pd.Series:
     return s.astype("string")
 
 
-def _points_from_pass_rate(points_possible: float, pass_rate: float) -> float:
+def _points_from_thresholds(
+    points_possible: float,
+    pass_rate: float,
+    high_pass_rate: float = 95.0,
+    mid_pass_rate: float = 90.0,
+    mid_points_factor: float = 0.6,
+) -> float:
+    """
+    3-level scoring:
+    - pass_rate >= high_pass_rate  -> full points
+    - pass_rate >= mid_pass_rate   -> mid points
+    - otherwise                     -> 0
+    """
     if points_possible <= 0:
         return 0.0
+
     pr = float(pass_rate) if pass_rate is not None else 0.0
-    pr = max(0.0, min(100.0, pr))
-    return float(points_possible) * (pr / 100.0)
+    if pr >= float(high_pass_rate):
+        return float(points_possible)
+    if pr >= float(mid_pass_rate):
+        mid_points = int(round(float(points_possible) * float(mid_points_factor)))
+        mid_points = max(0, min(int(points_possible), mid_points))
+        return float(mid_points)
+    return 0.0
 
 
 @dataclass
@@ -222,7 +240,13 @@ class DataQualityValidator:
             else:
                 raise ValueError(f"Unknown check type: {check_type}")
 
-            points_earned = _points_from_pass_rate(points_possible, pass_rate)
+            points_earned = _points_from_thresholds(
+                points_possible=points_possible,
+                pass_rate=pass_rate,
+                high_pass_rate=check.get("high_pass_rate", 95),
+                mid_pass_rate=check.get("mid_pass_rate", 90),
+                mid_points_factor=check.get("mid_points_factor", 0.6),
+            )
 
             return {
                 **base,
@@ -338,14 +362,18 @@ class DataQualityValidator:
         start_field: str,
         end_field: str,
     ) -> Tuple[float, int, int, int, List[int]]:
-        needed = [loss_field, start_field, end_field]
+        needed = [loss_field, start_field]
         for f in needed:
             if f not in df.columns:
                 return 0.0, 0, 0, int(len(df)), []
 
         loss = _as_datetime_series(df[loss_field])
         start = _as_datetime_series(df[start_field])
-        end = _as_datetime_series(df[end_field])
+        # policy_end_date is optional: if unmapped, assume start + 1 year
+        if end_field in df.columns:
+            end = _as_datetime_series(df[end_field])
+        else:
+            end = start + pd.DateOffset(years=1)
 
         usable = loss.notna() & start.notna() & end.notna()
         scope = df[usable].copy()

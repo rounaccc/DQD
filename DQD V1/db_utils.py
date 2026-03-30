@@ -222,7 +222,7 @@ class DatabaseManager:
 
                     rows.append((
                         quarter_id, timestamp, category, subcategory,
-                        check['check_id'], check['check_name'], check['priority'],
+                        check['check_id'], check['check_name'], check.get('priority', 'N/A'),
                         check.get('pass_rate', 0), check.get('passed', 0),
                         check.get('failed', 0), check.get('total', 0),
                         check['points_possible'], check['points_earned'], status,
@@ -251,7 +251,7 @@ class DatabaseManager:
                     if check['points_earned'] < check['points_possible']:
                         rows.append((
                             quarter_id, timestamp, category, subcategory,
-                            check['check_id'], check['check_name'], check['priority'],
+                            check['check_id'], check['check_name'], check.get('priority', 'N/A'),
                             check.get('pass_rate', 0), check.get('failed', 0), check.get('total', 0),
                             json.dumps(check.get('failed_records', [])[:100])
                         ))
@@ -492,7 +492,7 @@ class DatabaseManager:
                     
                     rows.append((
                         quarter_id, timestamp, category, subcategory,
-                        check['check_id'], check['check_name'], check['priority'],
+                        check['check_id'], check['check_name'], check.get('priority', 'N/A'),
                         check.get('pass_rate', 0), check.get('passed', 0), 
                         check.get('failed', 0), check.get('total', 0),
                         check['points_possible'], check['points_earned'], status,
@@ -521,7 +521,7 @@ class DatabaseManager:
                     if check['points_earned'] < check['points_possible']:
                         rows.append((
                             quarter_id, timestamp, category, subcategory,
-                            check['check_id'], check['check_name'], check['priority'],
+                            check['check_id'], check['check_name'], check.get('priority', 'N/A'),
                             check.get('pass_rate', 0), check.get('failed', 0), check.get('total', 0),
                             json.dumps(check.get('failed_records', [])[:100])
                         ))

@@ -96,7 +96,9 @@ def get_table_preview(server, database, table, username="", password="", limit=5
     try:
         conn_str = get_connection_string(server, database, username, password)
         query = f"SELECT TOP {limit} * FROM {table}"
-        df = pd.read_sql(query, conn_str)
+        conn = pyodbc.connect(conn_str)
+        df = pd.read_sql(query, conn)
+        conn.close()
         return df
     except Exception as e:
         return pd.DataFrame()
@@ -160,6 +162,7 @@ def load_data_from_db(server, database, table, bdx_value=None, username="", pass
     """Load data from database. If bdx_value provided, loads that single month."""
     try:
         conn_str = get_connection_string(server, database, username, password)
+        conn = pyodbc.connect(conn_str)
         
         # Find bdx column
         columns = get_columns_from_table(server, database, table, username, password)
@@ -167,10 +170,12 @@ def load_data_from_db(server, database, table, bdx_value=None, username="", pass
         
         if bdx_value is not None:
             query = f"SELECT * FROM {table} WHERE {bdx_col} = ?"
-            df = pd.read_sql(query, conn_str, params=[bdx_value])
+            df = pd.read_sql(query, conn, params=[bdx_value])
         else:
             query = f"SELECT * FROM {table}"
-            df = pd.read_sql(query, conn_str)
+            df = pd.read_sql(query, conn)
+
+        conn.close()
         
         return df
     except Exception as e:
