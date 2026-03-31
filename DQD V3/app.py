@@ -78,7 +78,6 @@ from streamlit_utils import (
     run_validation_pipeline,
     save_results_to_sql,
     create_excel_report,
-    create_errors_excel,
     prepare_final_config
 )
 
@@ -996,9 +995,6 @@ elif st.session_state.step == 8:
                 data = st.session_state.excel_data
                 prev_data = getattr(st.session_state, "excel_prev_data", None)
             
-            # Store raw data for errors Excel download
-            st.session_state.raw_data_for_errors = data
-
             progress_bar.progress(20)
             
             # Load risk data if needed
@@ -1206,7 +1202,7 @@ elif st.session_state.step == 8:
     st.markdown("---")
     st.subheader("💾 Export Results")
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         # Download Excel Report
@@ -1220,20 +1216,6 @@ elif st.session_state.step == 8:
         )
     
     with col2:
-        # Download Errors Excel - one sheet per failed check with actual records
-        raw_data = st.session_state.get('raw_data_for_errors')
-        if raw_data is not None:
-            errors_buffer = create_errors_excel(results, raw_data, st.session_state.column_mappings)
-            st.download_button(
-                label="🚨 Download Errors Excel",
-                data=errors_buffer,
-                file_name=f"DQ_Errors_{st.session_state.business_line}_{st.session_state.quarter}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-        else:
-            st.button("🚨 Download Errors Excel", disabled=True, help="Raw data not available")
-
-    with col3:
         # Download JSON Results
         json_str = json.dumps(results, indent=2, default=str)
         
@@ -1244,7 +1226,7 @@ elif st.session_state.step == 8:
             mime="application/json"
         )
     
-    with col4:
+    with col3:
         # Save to SQL Database
         if st.button("💾 Save to SQL Database", type="primary"):
             with st.spinner("Saving to database..."):
@@ -1301,3 +1283,4 @@ elif st.session_state.step == 8:
                 st.session_state.schema_name,
                 st.session_state.schema_name
             ))
+

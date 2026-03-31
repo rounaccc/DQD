@@ -36,12 +36,7 @@ def _points_from_pass_rate(points_possible: float, pass_rate: float) -> float:
         return 0.0
     pr = float(pass_rate) if pass_rate is not None else 0.0
     pr = max(0.0, min(100.0, pr))
-    if pr > 95.0:
-        return float(int(points_possible))          # full points
-    elif pr > 90.0:
-        return float(int(points_possible * 0.6))    # 60% of points
-    else:
-        return 0.0                                   # no points
+    return float(points_possible) * (pr / 100.0)
 
 
 @dataclass
@@ -76,28 +71,6 @@ class DataQualityValidator:
         df_prev = None
         if prev_df is not None:
             df_prev = prev_df.rename(columns={v: k for k, v in column_mappings.items()})
-
-        # Generic collision fix: if two logical names share the same physical column,
-        # pandas only renames it to one. Find any missing logical names and copy from
-        # whichever logical name ended up with that physical column's data.
-        # Build: physical_col -> list of logical names that mapped to it
-        from collections import defaultdict
-        phys_to_logical = defaultdict(list)
-        for logical, physical in column_mappings.items():
-            phys_to_logical[physical].append(logical)
-
-        for physical, logical_names in phys_to_logical.items():
-            if len(logical_names) < 2:
-                continue
-            # Find which logical name is present in the df (the one pandas kept)
-            for df in [df_current, df_prev]:
-                if df is None:
-                    continue
-                present = [l for l in logical_names if l in df.columns]
-                missing = [l for l in logical_names if l not in df.columns]
-                if present and missing:
-                    for m in missing:
-                        df[m] = df[present[0]]
 
         # Coerce dtypes for fields we know about
         df_current = self._coerce_required_types(df_current)
@@ -343,9 +316,8 @@ class DataQualityValidator:
         if status_field not in df.columns or os_field not in df.columns:
             return 0.0, 0, 0, int(len(df)), []
         statuses = _safe_str_series(df[status_field]).str.strip().str.lower()
-        closed_terms = [str(v).strip().lower() for v in closed_values if v is not None]
-        # Substring match: a row is "closed" if its status contains ANY of the closed terms
-        is_closed = statuses.apply(lambda s: any(term in s for term in closed_terms) if pd.notna(s) else False)
+        closed_set = {str(v).strip().lower() for v in closed_values if v is not None}
+        is_closed = statuses.isin(closed_set)
         scope = df[is_closed].copy()
         total = int(len(scope))
         if total == 0:
