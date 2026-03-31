@@ -268,3 +268,4 @@ class DatabaseManager:
         """
 
         self.cursor.executemany(query, rows)
+
