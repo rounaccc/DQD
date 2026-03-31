@@ -145,7 +145,7 @@ if st.session_state.step == 1:
                 st.session_state.closed_status_values = meta.get("closed_status_values", ["Closed"])
                 
                 # server/auth may still be provided by user; keep defaults if missing
-                st.session_state.server = meta.get("server", "14324u15VT") if isinstance(meta, dict) else "14324u15VT"
+                st.session_state.server = meta.get("server", "EMEUKHC4DB15VT") if isinstance(meta, dict) else "EMEUKHC4DB15VT"
                 st.session_state.username = meta.get("username", "")
                 st.session_state.password = meta.get("password", "")
                 
@@ -196,7 +196,7 @@ if st.session_state.step == 1:
         st.subheader("Database Server")
         server = st.text_input(
             "Server Name*",
-            value="14324u15VT",
+            value="EMEUKHC4DB15VT",
             help="Default server for connections"
         )
         
@@ -467,15 +467,15 @@ elif st.session_state.step == 2:
             st.session_state.data_source = data_source
             
             if data_source == "Database":
-                st.session_state.claims_db = claims_db
-                st.session_state.claims_table = claims_table
-                st.session_state.bdx_month = bdx_month
+                st.session_state.claims_db_selected = claims_db
+                st.session_state.claims_table_selected = claims_table
+                st.session_state.bdx_month_selected = bdx_month
                 st.session_state.prev_bdx_month = prev_bdx
             
             st.session_state.use_risk_db = use_risk_db
             if use_risk_db:
-                st.session_state.risk_db = risk_db
-                st.session_state.risk_table = risk_table
+                st.session_state.risk_db_selected = risk_db
+                st.session_state.risk_table_selected = risk_table
             
             st.session_state.step = 3
             st.rerun()
@@ -624,8 +624,8 @@ elif st.session_state.step == 5:
     if st.session_state.data_source == "Database":
         available_columns = get_columns_from_table(
             st.session_state.server,
-            st.session_state.claims_db,
-            st.session_state.claims_table,
+            st.session_state.claims_db_selected,
+            st.session_state.claims_table_selected,
             st.session_state.username,
             st.session_state.password
         )
@@ -653,8 +653,8 @@ elif st.session_state.step == 5:
         # Get risk table columns
         risk_columns = get_columns_from_table(
             st.session_state.server,
-            st.session_state.risk_db,
-            st.session_state.risk_table,
+            st.session_state.risk_db_selected,
+            st.session_state.risk_table_selected,
             st.session_state.username,
             st.session_state.password
         )
@@ -858,9 +858,9 @@ elif st.session_state.step == 7:
         if st.session_state.data_source == "Database":
             st.markdown(f"""
             - Source: Database  
-            - Database: {st.session_state.claims_db}  
-            - Table: {st.session_state.claims_table}  
-            - bdx_month: {st.session_state.bdx_month}
+            - Database: {st.session_state.claims_db_selected}  
+            - Table: {st.session_state.claims_table_selected}  
+            - bdx_month: {st.session_state.bdx_month_selected}
             - prev_bdx_month: {st.session_state.prev_bdx_month}
             """)
         else:
@@ -873,8 +873,8 @@ elif st.session_state.step == 7:
         if st.session_state.use_risk_db:
             st.markdown(f"""
             **Risk Data:**  
-            - Database: {st.session_state.risk_db}  
-            - Table: {st.session_state.risk_table}
+            - Database: {st.session_state.risk_db_selected}  
+            - Table: {st.session_state.risk_table_selected}
             """)
     
     with col2:
@@ -975,9 +975,9 @@ elif st.session_state.step == 8:
             if st.session_state.data_source == "Database":
                 data = load_data_from_db(
                     st.session_state.server,
-                    st.session_state.claims_db,
-                    st.session_state.claims_table,
-                    st.session_state.bdx_month,
+                    st.session_state.claims_db_selected,
+                    st.session_state.claims_table_selected,
+                    st.session_state.bdx_month_selected,
                     st.session_state.username,
                     st.session_state.password
                 )
@@ -985,8 +985,8 @@ elif st.session_state.step == 8:
                 if st.session_state.prev_bdx_month is not None and str(st.session_state.prev_bdx_month) != "NaT":
                     prev_data = load_data_from_db(
                         st.session_state.server,
-                        st.session_state.claims_db,
-                        st.session_state.claims_table,
+                        st.session_state.claims_db_selected,
+                        st.session_state.claims_table_selected,
                         st.session_state.prev_bdx_month,
                         st.session_state.username,
                         st.session_state.password,
@@ -1005,8 +1005,8 @@ elif st.session_state.step == 8:
                 
                 risk_data = load_data_from_db(
                     st.session_state.server,
-                    st.session_state.risk_db,
-                    st.session_state.risk_table,
+                    st.session_state.risk_db_selected,
+                    st.session_state.risk_table_selected,
                     None,
                     st.session_state.username,
                     st.session_state.password
@@ -1283,5 +1283,4 @@ elif st.session_state.step == 8:
                 st.session_state.schema_name,
                 st.session_state.schema_name
             ))
-
 
