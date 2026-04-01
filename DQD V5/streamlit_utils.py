@@ -309,6 +309,102 @@ def save_results_to_sql(results, server, database, schema_name, username="", pas
         return False
 
 
+def create_errors_excel(results, original_df, column_mappings):
+    """
+    Create an Excel file with one sheet per check that has failures.
+    Each sheet shows the failed records + relevant column values.
+    original_df: the raw (pre-rename) dataframe so we can look up actual values.
+    column_mappings: logical_name -> physical_col_name
+    """
+    output = io.BytesIO()
+
+    # Rename original_df to logical names for easy lookup
+    df = original_df.rename(columns={v: k for k, v in column_mappings.items()})
+
+    # Check types whose failed_records are identifier strings (not row indices)
+    IDENTIFIER_CHECKS = {
+        'missing_claims_from_prev_month',
+        'total_paid_non_decreasing_vs_prev',
+        'risk_policy_match',
+    }
+
+    # Label for what identifier each check returns
+    IDENTIFIER_LABEL = {
+        'missing_claims_from_prev_month':    'Missing Claim Number',
+        'total_paid_non_decreasing_vs_prev': 'Claim Number (Paid Decreased)',
+        'risk_policy_match':                 'Policy Number (Not in Risk Table)',
+    }
+
+    # Columns to show per check type (for row-index based checks)
+    check_context_cols = {
+        'not_null':                    ['claim_number', 'check_field'],
+        'not_null_not_year_1900':       ['claim_number', 'check_field'],
+        'non_negative':                 ['claim_number', 'check_field'],
+        'unique':                       ['claim_number', 'check_field'],
+        'valid_date':                   ['claim_number', 'check_field'],
+        'closed_os_zero':               ['claim_number', 'claim_status', 'total_os'],
+        'loss_within_policy':           ['claim_number', 'accident_date', 'policy_start_date', 'policy_end_date'],
+        'incurred_equals_paid_plus_os': ['claim_number', 'total_incurred', 'total_paid', 'total_os'],
+    }
+
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        sheets_written = 0
+
+        for category, subcategories in results['detailed_results'].items():
+            for subcategory, checks in subcategories.items():
+                for check in checks:
+                    failed_records = check.get('failed_records', [])
+                    if not failed_records:
+                        continue
+
+                    check_id = check['check_id']
+                    check_type = check.get('check_type', '')
+                    sheet_name = f"{check_id} {check['check_name']}"[:31]
+
+                    # --- IDENTIFIER-TYPE CHECKS (policy/claim strings, not row indices) ---
+                    if check_type in IDENTIFIER_CHECKS or check.get('failed_records_are_identifiers'):
+                        label = IDENTIFIER_LABEL.get(check_type, 'Failed Record')
+                        sheet_df = pd.DataFrame({label: failed_records})
+                        sheet_df.to_excel(writer, sheet_name=sheet_name, index=False)
+                        sheets_written += 1
+                        continue
+
+                    # --- ROW-INDEX-TYPE CHECKS ---
+                    ctx_cols = check_context_cols.get(check_type)
+                    try:
+                        subset = df.loc[failed_records].copy()
+                    except Exception:
+                        pd.DataFrame({'Failed Row Index': failed_records}).to_excel(
+                            writer, sheet_name=sheet_name, index=False
+                        )
+                        sheets_written += 1
+                        continue
+
+                    if ctx_cols is None:
+                        sheet_df = subset.reset_index(drop=True)
+                    else:
+                        field = check.get('field', '')
+                        cols_to_show = []
+                        for c in ctx_cols:
+                            if c == 'check_field':
+                                if field and field in subset.columns:
+                                    cols_to_show.append(field)
+                            elif c in subset.columns:
+                                cols_to_show.append(c)
+                        sheet_df = subset[cols_to_show].reset_index(drop=True) if cols_to_show else subset.reset_index(drop=True)
+
+                    sheet_df.to_excel(writer, sheet_name=sheet_name, index=False)
+                    sheets_written += 1
+
+        if sheets_written == 0:
+            pd.DataFrame([{'Message': 'No errors found across all checks.'}]).to_excel(
+                writer, sheet_name='No Errors', index=False
+            )
+
+    output.seek(0)
+    return output
+
+
 def create_excel_report(results):
     """Create Excel report from validation results"""
     output = io.BytesIO()
@@ -383,11 +479,12 @@ def prepare_final_config(config, column_mappings, session_state):
         },
         'column_mappings': column_mappings,
         'checks': config.get('checks', []),
-        'scoring_thresholds': {
-            'thresh_full': getattr(session_state, 'thresh_full', 95),
-            'thresh_mid': getattr(session_state, 'thresh_mid', 90),
-            'mid_points': getattr(session_state, 'mid_points', 3),
-        },
+        'scoring_thresholds': config.get('scoring_thresholds', {
+            'excellent': 95,
+            'good': 85,
+            'fair': 75,
+            'poor': 65
+        }),
     }
     
     if session_state.data_source == "Database":
