@@ -250,12 +250,28 @@ elif st.session_state.step == 2:
                 placeholder="e.g., ClaimsDB",
                 key="claims_db_input"
             )
+        # with col2:
+        #     if st.button("Test Connection", key="test_claims"):
+        #         if claims_db:
+        #             with st.spinner("Testing..."):
+        #                 success, message = test_db_connection(st.session_state.server, claims_db, st.session_state.username, st.session_state.password)
+        #                 st.success(message) if success else st.error(message)
+        #         else:
+        #             st.warning("Please enter database name")
         with col2:
             if st.button("Test Connection", key="test_claims"):
                 if claims_db:
-                    with st.spinner("Testing..."):
-                        success, message = test_db_connection(st.session_state.server, claims_db, st.session_state.username, st.session_state.password)
-                        st.success(message) if success else st.error(message)
+                    with st.spinner("Testing connection..."):
+                        success, message = test_db_connection(
+                            st.session_state.server,
+                            claims_db,
+                            st.session_state.username,
+                            st.session_state.password
+                        )
+                        if success:
+                            st.success(message)
+                        else:
+                            st.error(message)
                 else:
                     st.warning("Please enter database name")
 
@@ -378,12 +394,26 @@ elif st.session_state.step == 2:
                 placeholder="e.g., RiskDB",
                 key="risk_db_input"
             )
+        # with col2:
+        #     if st.button("Test Connection", key="test_risk"):
+        #         if risk_db:
+        #             with st.spinner("Testing..."):
+        #                 success, message = test_db_connection(st.session_state.server, risk_db, st.session_state.username, st.session_state.password)
+        #                 st.success(message) if success else st.error(message)
         with col2:
             if st.button("Test Connection", key="test_risk"):
                 if risk_db:
-                    with st.spinner("Testing..."):
-                        success, message = test_db_connection(st.session_state.server, risk_db, st.session_state.username, st.session_state.password)
-                        st.success(message) if success else st.error(message)
+                    with st.spinner("Testing connection..."):
+                        success, message = test_db_connection(
+                            st.session_state.server,
+                            risk_db,
+                            st.session_state.username,
+                            st.session_state.password
+                        )
+                        if success:
+                            st.success(message)
+                        else:
+                            st.error(message)
 
         if risk_db:
             risk_tables = get_tables_list(st.session_state.server, risk_db, st.session_state.username, st.session_state.password)
@@ -440,12 +470,26 @@ elif st.session_state.step == 3:
             value=st.session_state.get('output_db', ''),
             placeholder="e.g., DataQualityDB",
         )
+    # with col2:
+    #     if st.button("Test Connection", key="test_output"):
+    #         if output_db:
+    #             with st.spinner("Testing..."):
+    #                 success, message = test_db_connection(st.session_state.server, output_db, st.session_state.username, st.session_state.password)
+    #                 st.success(message) if success else st.error(message)
     with col2:
         if st.button("Test Connection", key="test_output"):
             if output_db:
-                with st.spinner("Testing..."):
-                    success, message = test_db_connection(st.session_state.server, output_db, st.session_state.username, st.session_state.password)
-                    st.success(message) if success else st.error(message)
+                with st.spinner("Testing connection..."):
+                    success, message = test_db_connection(
+                        st.session_state.server,
+                        output_db,
+                        st.session_state.username,
+                        st.session_state.password
+                    )
+                    if success:
+                        st.success(message)
+                    else:
+                        st.error(message)
 
     if output_db:
         st.markdown("---")
@@ -960,36 +1004,36 @@ elif st.session_state.step == 8:
         else:
             st.button("🚨 Download Errors Excel", disabled=True, help="Raw data not available")
 
-    with col3:
-        json_str = json.dumps(results, indent=2, default=str)
-        st.download_button(
-            label="📥 Download JSON Results",
-            data=json_str,
-            file_name=f"DQ_Results_{st.session_state.business_line}_{st.session_state.quarter}.json",
-            mime="application/json"
-        )
+    # with col3:
+    #     json_str = json.dumps(results, indent=2, default=str)
+    #     st.download_button(
+    #         label="📥 Download JSON Results",
+    #         data=json_str,
+    #         file_name=f"DQ_Results_{st.session_state.business_line}_{st.session_state.quarter}.json",
+    #         mime="application/json"
+    #     )
 
-    with col4:
-        if st.button("💾 Save to SQL Database", type="primary"):
-            with st.spinner("Saving to database..."):
-                success = save_results_to_sql(
-                    results,
-                    st.session_state.server,
-                    st.session_state.output_db,
-                    st.session_state.schema_name,
-                    st.session_state.username,
-                    st.session_state.password
-                )
-                if success:
-                    st.success("✅ Results saved to database successfully!")
-                    st.info(f"""
-                    **Tables updated:**
-                    - {st.session_state.schema_name}.dq_scores
-                    - {st.session_state.schema_name}.dq_check_results
-                    - {st.session_state.schema_name}.dq_issues
-                    """)
-                else:
-                    st.error("❌ Error saving to database")
+    # with col4:
+    #     if st.button("💾 Save to SQL Database", type="primary"):
+    #         with st.spinner("Saving to database..."):
+    #             success = save_results_to_sql(
+    #                 results,
+    #                 st.session_state.server,
+    #                 st.session_state.output_db,
+    #                 st.session_state.schema_name,
+    #                 st.session_state.username,
+    #                 st.session_state.password
+    #             )
+    #             if success:
+    #                 st.success("✅ Results saved to database successfully!")
+    #                 st.info(f"""
+    #                 **Tables updated:**
+    #                 - {st.session_state.schema_name}.dq_scores
+    #                 - {st.session_state.schema_name}.dq_check_results
+    #                 - {st.session_state.schema_name}.dq_issues
+    #                 """)
+    #             else:
+    #                 st.error("❌ Error saving to database")
 
     st.markdown("---")
     col1, col2 = st.columns([1, 5])
@@ -999,23 +1043,23 @@ elif st.session_state.step == 8:
                 del st.session_state[key]
             st.session_state.step = 1
             st.rerun()
-    with col2:
-        if st.button("📊 Connect to Power BI"):
-            st.info("""
-            **Power BI Connection Details:**
+    # with col2:
+    #     if st.button("📊 Connect to Power BI"):
+    #         st.info("""
+    #         **Power BI Connection Details:**
 
-            1. Open Power BI Desktop
-            2. Get Data → SQL Server
-            3. Server: `{}`
-            4. Database: `{}`
-            5. Import tables:
-               - `{}.dq_scores`
-               - `{}.dq_check_results`
-               - `{}.dq_issues`
-            """.format(
-                st.session_state.server,
-                st.session_state.output_db,
-                st.session_state.schema_name,
-                st.session_state.schema_name,
-                st.session_state.schema_name
-            ))
+    #         1. Open Power BI Desktop
+    #         2. Get Data → SQL Server
+    #         3. Server: `{}`
+    #         4. Database: `{}`
+    #         5. Import tables:
+    #            - `{}.dq_scores`
+    #            - `{}.dq_check_results`
+    #            - `{}.dq_issues`
+    #         """.format(
+    #             st.session_state.server,
+    #             st.session_state.output_db,
+    #             st.session_state.schema_name,
+    #             st.session_state.schema_name,
+    #             st.session_state.schema_name
+    #         ))

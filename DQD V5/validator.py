@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 import yaml
+import re
 
 
 def _as_datetime_series(s: pd.Series) -> pd.Series:
@@ -339,9 +340,14 @@ class DataQualityValidator:
     def _check_closed_os_zero(self, df, status_field, os_field, closed_values):
         if status_field not in df.columns or os_field not in df.columns:
             return 0.0, 0, 0, int(len(df)), []
-        closed_vals_str = [str(v).strip() for v in closed_values]
-        closed_mask = df[status_field].astype(str).str.strip().isin(closed_vals_str)
-        scope = df[closed_mask]
+        # closed_vals_str = [str(v).strip() for v in closed_values]
+        # closed_mask = df[status_field].astype(str).str.strip().isin(closed_vals_str)
+        # scope = df[closed_mask]
+        closed_vals_str = [str(v).strip().upper() for v in closed_values]
+        status_upper = df[status_field].astype(str).str.strip().str.upper()
+        # mask = status_upper.apply(lambda s: any(val in s for val in closed_vals_str))
+        mask = status_upper.apply(lambda s: any(re.search(r'\b' + re.escape(val) + r'\b', s) for val in closed_vals_str))
+        scope = df[mask]
         total = int(len(scope))
         if total == 0:
             return 100.0, 0, 0, 0, []

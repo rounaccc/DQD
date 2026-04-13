@@ -38,8 +38,10 @@ def test_db_connection(server, database, username="", password=""):
     """Test database connection"""
     try:
         conn_str = get_connection_string(server, database, username, password)
+        # devnull = 
         conn = pyodbc.connect(conn_str, timeout=5)
         conn.close()
+
         return True, f"✓ Connected to {database} successfully"
     except Exception as e:
         return False, f"✗ Connection failed: {str(e)}"
