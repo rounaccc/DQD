@@ -368,3 +368,52 @@ pip install streamlit pandas pyodbc pyyaml plotly openpyxl xlsxwriter
 streamlit run app.py
 
 # 3. App opens in browser at http://localhost:8501
+
+
+Saving Results to SQL Server — Implementation Guide
+This section describes how the SQL output would be implemented. The code for this already exists in db_utils.py and streamlit_utils.py — it just needs to be connected and tested.
+
+What the Code Already Has
+db_utils.py has a fully written DatabaseManager class that:
+
+Connects to SQL Server using PyODBC
+Auto-creates three output tables if they don't exist
+Inserts validation results into those tables
+
+streamlit_utils.py has save_results_to_sql() which instantiates DatabaseManager and calls save_results().
+app.py Step 8 already has the Save to SQL Database button wired up to call save_results_to_sql().
+So the plumbing is all there — it was not tested end-to-end due to time constraints.
+
+The Three Output Tables
+All three tables are created under the business line schema (e.g. Auto.dq_scores). They are created automatically on first save — no manual table creation needed.
+dq_scores — one row per validation run. Stores the headline numbers.
+ColumnDescriptionquarter_idBusiness line + quarter e.g. Auto_2024_Q3run_timestampWhen the validation was runtotal_recordsTotal records in the BDX monthoverall_scoreFinal score out of 100statusEXCELLENT / GOOD / FAIR / POOR / CRITICALcompleteness_scoreCategory score %consistency_scoreCategory score %reasonableness_scoreCategory score %data_quality_scoreCategory score %temporal_logic_scoreCategory score %total_checksTotal checks runpassed_checksChecks that got full pointswarning_checksChecks that got partial pointsfailed_checksChecks that got zero points
+dq_check_results — one row per check per run. Full detail.
+ColumnDescriptionquarter_idBusiness line + quarterrun_timestampWhen the validation was runcategorye.g. Completeness, Consistencysubcategorye.g. Required Fields, Logical Rulescheck_ide.g. 1.1, 3.3check_nameFull check namepriorityHigh / Medium / Lowpass_rate% of records that passedpassed_countNumber of records passedfailed_countNumber of records failedpoints_possibleMax points for this checkpoints_earnedActual points earnedstatusPASS / WARN / FAILfailed_records_jsonFirst 100 failed records stored as JSON
+dq_issues — same as dq_check_results but only rows where points_earned < points_possible. This is the table to use for tracking and resolving issues over time.
+
+How to Implement and Test
+Step 1 — Create the output database
+On the SQL Server instance, create a database to store results:
+sqlCREATE DATABASE DataQualityDB
+Step 2 — Create the schema
+The app does this automatically in Step 3 when the user clicks "Create Schema Now". Alternatively run manually:
+sqlCREATE SCHEMA Auto
+Step 3 — Verify ODBC connectivity
+On the machine running the app, confirm the ODBC Driver 17 for SQL Server is installed. Open Anaconda prompt and test:
+pythonimport pyodbc
+conn = pyodbc.connect(
+    "DRIVER={ODBC Driver 17 for SQL Server};"
+    "SERVER=your_server;"
+    "DATABASE=DataQualityDB;"
+    "Trusted_Connection=yes;"
+)
+print("Connected")
+Step 4 — Run a validation and click Save to SQL
+In Step 8 of the app, after a successful validation run, click the Save to SQL Database button. The app will:
+
+Call save_results_to_sql() in streamlit_utils.py
+Which calls DatabaseManager.connect() in db_utils.py
+Then calls create_tables_if_not_exist() — creates tables on first run
+Then calls save_results() — inserts into all three tables
+Returns success or failure message
